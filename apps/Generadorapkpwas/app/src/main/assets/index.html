@@ -1,0 +1,2178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Android Forge — PWA to APK</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0f14">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    margin: 0; padding: 76px 12px 130px 12px;
+    background: #0f1419; color: #e2e8f0; font-size: 14px;
+  }
+
+  #topBar {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 40;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    background: #0a0f14;
+    border-bottom: 1px solid #2d3748;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+    min-height: 60px;
+  }
+  .top-bar-icon { font-size: 18px; flex-shrink: 0; }
+  .top-bar-title {
+    flex: 1; color: #60a5fa; font-size: 14px; font-weight: 700;
+    font-family: ui-monospace, monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .top-bar-status {
+    display: flex; align-items: center;
+    font-size: 11px; color: #94a3b8;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #666;
+    display: inline-block; margin-right: 5px;
+  }
+  .status-dot.ok { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+  .status-dot.busy { background: #facc15; box-shadow: 0 0 8px #facc15; }
+  .status-dot.err { background: #f87171; box-shadow: 0 0 8px #f87171; }
+
+  h3 {
+    margin: 18px 0 8px; font-size: 11px; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  h3::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, #2d3748, transparent);
+  }
+
+  .field { margin-bottom: 10px; }
+  .field-label {
+    display: block; font-size: 11px; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin: 0 0 4px 2px; font-weight: 700;
+  }
+  .field-hint {
+    font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4;
+  }
+  .field-hint b { color: #60a5fa; }
+
+  input[type="text"], input[type="password"], input[type="url"], input[type="number"] {
+    width: 100%; background: #1f2937; color: #e2e8f0;
+    border: 1px solid #374151; border-radius: 8px;
+    padding: 11px 12px; font-size: 14px;
+    font-family: ui-monospace, monospace;
+  }
+  input:focus {
+    outline: none; border-color: #60a5fa;
+    box-shadow: 0 0 0 3px rgba(96,165,250,0.15);
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .segmented {
+    display: flex;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #0a0f14;
+  }
+  .segmented button {
+    flex: 1; padding: 11px 6px;
+    background: transparent; color: #94a3b8;
+    border: none; font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .segmented button + button { border-left: 1px solid #374151; }
+  .segmented button.on {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+  }
+
+  .btn-folder-big {
+    width: 100%; padding: 15px; border-radius: 12px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border: 1px solid #60a5fa; color: #fff;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 4px 14px rgba(59,130,246,0.45);
+    font-family: inherit;
+  }
+  .btn-folder-big:active { background: linear-gradient(135deg, #2563eb, #1e40af); }
+  .btn-folder-big.picked {
+    background: #0d2818;
+    border-color: #4ade80;
+    color: #86efac;
+    box-shadow: 0 0 0 3px rgba(74,222,128,0.15);
+  }
+
+  .btn-test-connection {
+    width: 100%;
+    padding: 13px;
+    border-radius: 10px;
+    background: #1f2937;
+    color: #60a5fa;
+    border: 1px solid #3b82f6;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-top: 10px;
+    transition: all 0.15s ease;
+  }
+  .btn-test-connection:active { background: #374151; transform: scale(0.98); }
+  .btn-test-connection:disabled {
+    opacity: 0.5; cursor: not-allowed;
+    background: #1f2937; color: #64748b; border-color: #374151;
+  }
+  .btn-test-connection.testing {
+    color: #facc15;
+    border-color: #d97706;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
+  }
+
+  .conn-result {
+    display: none;
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.55;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .conn-result.visible { display: block; }
+  .conn-result.success {
+    background: rgba(74,222,128,0.08);
+    border: 1px solid rgba(74,222,128,0.4);
+    border-left: 3px solid #4ade80;
+    color: #86efac;
+  }
+  .conn-result.error {
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.4);
+    border-left: 3px solid #f87171;
+    color: #fca5a5;
+  }
+  .conn-result.warning {
+    background: rgba(250,204,21,0.08);
+    border: 1px solid rgba(250,204,21,0.4);
+    border-left: 3px solid #facc15;
+    color: #fde68a;
+  }
+  .conn-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .conn-user img {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 2px solid #4ade80;
+    flex-shrink: 0;
+  }
+  .conn-user .info { flex: 1; min-width: 0; }
+  .conn-user .info .name {
+    font-size: 14px; font-weight: 800;
+    color: #e2e8f0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .conn-user .info .login {
+    font-size: 11px;
+    color: #94a3b8;
+    font-family: ui-monospace, monospace;
+    margin-top: 1px;
+  }
+  .conn-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+  }
+  .conn-stats .stat-item {
+    padding: 6px 8px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 6px;
+  }
+  .conn-stats .stat-item .lbl {
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 9px;
+  }
+  .conn-stats .stat-item .val {
+    color: #e2e8f0;
+    font-weight: 700;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .conn-scopes {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .conn-scopes .scopes-title {
+    font-size: 10px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .conn-scopes .scopes-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .scope-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: ui-monospace, monospace;
+  }
+  .scope-badge.have {
+    background: rgba(74,222,128,0.15);
+    color: #86efac;
+    border: 1px solid rgba(74,222,128,0.4);
+  }
+  .scope-badge.missing {
+    background: rgba(248,113,113,0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(248,113,113,0.4);
+  }
+  .conn-warn {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: rgba(250,204,21,0.1);
+    border-radius: 6px;
+    font-size: 11px;
+    color: #fde68a;
+    line-height: 1.5;
+  }
+  .conn-warn b { color: #facc15; }
+
+  .help-card {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.35);
+    border-left: 3px solid #60a5fa;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.55;
+    color: #cbd5e1;
+    margin-bottom: 10px;
+  }
+  .help-card b { color: #60a5fa; }
+  .help-card a { color: #60a5fa; text-decoration: underline; }
+
+  .color-field { display: flex; gap: 6px; align-items: stretch; }
+  .color-field input[type="color"] {
+    width: 44px; height: 42px; padding: 2px; border-radius: 8px;
+    border: 1px solid #374151; background: #1f2937; cursor: pointer;
+    flex-shrink: 0;
+  }
+  .color-field input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+  .color-field input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
+
+  .emoji-presets {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
+  }
+  .emoji-preset {
+    background: #1f2937; border: 1px solid #374151;
+    border-radius: 8px; padding: 6px 10px; font-size: 18px;
+    cursor: pointer; line-height: 1;
+  }
+  .emoji-preset:active { transform: scale(0.92); background: #374151; }
+  .emoji-preset.sel { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96,165,250,0.25); }
+
+  .icon-preview-row {
+    display: flex; gap: 14px; align-items: flex-end;
+    padding: 14px; background: #0a0f14;
+    border: 1px solid #2d3748; border-radius: 10px;
+    justify-content: center;
+  }
+  .icon-preview-item { text-align: center; }
+  .icon-preview-item img {
+    display: block; border-radius: 22%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .icon-preview-item span {
+    display: block; font-size: 10px; color: #64748b;
+    margin-top: 6px; font-family: ui-monospace, monospace;
+  }
+
+  .checkbox-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 12px;
+    background: #0a0f14;
+    border: 1px solid #2d3748;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .checkbox-row:active { background: #131820; }
+  .checkbox-row.on { border-color: #60a5fa; background: rgba(59,130,246,0.08); }
+  .checkbox-row input[type="checkbox"] {
+    width: 20px; height: 20px;
+    accent-color: #3b82f6;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .checkbox-row .info { flex: 1; min-width: 0; }
+  .checkbox-row .title { font-size: 13px; font-weight: 700; color: #e2e8f0; }
+  .checkbox-row .desc {
+    font-size: 10px; color: #64748b;
+    margin-top: 2px;
+    font-family: ui-monospace, monospace;
+  }
+
+  .pwa-info-box {
+    background: #0a0f14; border: 1px solid #2d3748;
+    border-radius: 10px; padding: 12px;
+    font-family: ui-monospace, monospace; font-size: 11px;
+    color: #94a3b8; line-height: 1.6;
+    max-height: 180px; overflow-y: auto;
+  }
+  .pwa-info-box .file-item { padding: 2px 0; }
+  .pwa-info-box .file-item.ok { color: #86efac; }
+  .pwa-info-box .file-item.warn { color: #facc15; }
+
+  .bottom-dock {
+    position: fixed; bottom: 0; left: 0; right: 0; width: 100%;
+    background: #0a0f14; border-top: 1px solid #2d3748;
+    z-index: 50; box-shadow: 0 -4px 15px rgba(0,0,0,0.7);
+    padding: 10px 12px 12px;
+    will-change: bottom;
+  }
+  .dock-btn {
+    flex: 1; padding: 15px 8px;
+    font-size: 15px; font-weight: 700;
+    border-radius: 10px; border: 1px solid #4a5568;
+    background: #1f2937; color: #e2e8f0;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    white-space: nowrap; font-family: inherit;
+    width: 100%;
+  }
+  .dock-btn:active { background: #374151; transform: scale(0.98); }
+  .dock-btn.primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-color: #60a5fa; color: #fff;
+    box-shadow: 0 4px 10px rgba(59,130,246,0.4);
+    padding: 17px 8px;
+  }
+  .dock-btn.primary:active { background: linear-gradient(135deg, #2563eb, #1e40af); }
+  .dock-btn:disabled {
+    opacity: 0.4; cursor: not-allowed;
+    background: #1f2937 !important;
+    color: #64748b !important;
+    box-shadow: none !important;
+    border-color: #374151 !important;
+  }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(5,8,12,0.92);
+    z-index: 300; padding: 16px;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal-content {
+    background: #131820; width: 100%; max-width: 520px;
+    border-radius: 14px; padding: 18px;
+    border: 1px solid #4a5568;
+    max-height: 90vh; display: flex; flex-direction: column;
+  }
+  .modal-title {
+    color: #60a5fa; font-size: 16px; margin: 0 0 12px 0;
+    display: flex; align-items: center; gap: 8px;
+    font-family: ui-monospace, monospace;
+    flex-shrink: 0;
+  }
+  .modal-body {
+    overflow-y: auto; flex: 1; min-height: 0;
+  }
+
+  .log-box {
+    background: #05080c;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    color: #cbd5e1;
+    max-height: 340px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .log-box .l-ok { color: #86efac; }
+  .log-box .l-err { color: #fca5a5; }
+  .log-box .l-info { color: #93c5fd; }
+  .log-box .l-warn { color: #fde68a; }
+  .log-box .l-muted { color: #64748b; }
+  .log-box .l-time { color: #475569; }
+
+  .progress-outer {
+    height: 4px; background: #1f2937;
+    border-radius: 2px; overflow: hidden; margin: 10px 0;
+  }
+  .progress-inner {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    width: 0%; transition: width 0.3s ease;
+  }
+
+  .result-actions {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 14px;
+  }
+  .result-actions a, .result-actions button {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    padding: 14px; border-radius: 10px;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    text-decoration: none;
+    border: 1px solid #4a5568;
+    background: #1f2937; color: #e2e8f0;
+  }
+  .result-actions a.primary {
+    background: linear-gradient(135deg, #4ade80, #16a34a);
+    border-color: #86efac; color: #052e16;
+    font-size: 15px; padding: 17px;
+    box-shadow: 0 4px 14px rgba(74,222,128,0.4);
+  }
+  .result-actions a.primary:active { background: linear-gradient(135deg, #22c55e, #15803d); }
+  .result-actions a:active, .result-actions button:active { background: #374151; }
+
+  body.teclado-abierto .modal-overlay.visible { align-items: flex-start; padding-top: 12px; }
+</style>
+</head>
+<body>
+
+<header id="topBar">
+  <span class="top-bar-icon">⚙️</span>
+  <span class="top-bar-title">Android Forge · PWA → APK</span>
+  <span class="top-bar-status">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">Configura y compila</span>
+  </span>
+</header>
+
+<h3>1 · Tu GitHub</h3>
+<div class="help-card">
+  Necesitas un <b>Personal Access Token</b> con scopes <code>repo</code> + <code>workflow</code>.<br>
+  Créalo en: <b>github.com/settings/tokens/new</b>
+</div>
+
+<div class="field">
+  <label class="field-label">Token de GitHub</label>
+  <input type="password" id="pat" placeholder="ghp_..." autocomplete="off" spellcheck="false">
+  <div class="field-hint">
+    Solo se envía a la API de GitHub directamente desde tu navegador.
+  </div>
+</div>
+
+<label class="checkbox-row" id="rowRemember">
+  <input type="checkbox" id="chkRemember" onchange="toggleRemember()">
+  <div class="info">
+    <div class="title">Recordar token en este dispositivo</div>
+    <div class="desc">Se guarda en localStorage. Desactívalo en equipos compartidos.</div>
+  </div>
+</label>
+
+<button class="btn-test-connection" id="btnTest" onclick="probarConexion()">
+  🔌 Probar conexión con GitHub
+</button>
+
+<div class="conn-result" id="connResult"></div>
+
+<div class="field" style="margin-top:14px">
+  <label class="field-label">Usuario / Organización</label>
+  <input type="text" id="owner" placeholder="tu-usuario-github" autocomplete="off" spellcheck="false">
+  <div class="field-hint" id="ownerHint">
+    Se rellenará automáticamente al probar la conexión.
+  </div>
+</div>
+
+<div class="field">
+  <label class="field-label">Repositorio</label>
+  <input type="text" id="repo" value="android-forge" autocomplete="off" spellcheck="false">
+  <div class="field-hint" id="repoHint">
+    Se creará si no existe. Se autorellena desde el nombre de la carpeta. <b>Público</b> = Releases descargables con un clic.
+  </div>
+</div>
+
+<div class="field">
+  <label class="field-label">Visibilidad</label>
+  <div class="segmented" id="repoVisibility">
+    <button type="button" data-v="public" class="on">🌐 Público</button>
+    <button type="button" data-v="private">🔒 Privado</button>
+  </div>
+</div>
+
+<h3>2 · Tu PWA o HTML</h3>
+
+<div class="field">
+  <label class="field-label">Modo de entrada</label>
+  <div class="segmented" id="pwaMode">
+    <button type="button" data-v="folder" class="on">📂 Carpeta local</button>
+    <button type="button" data-v="url">🌐 URL remota</button>
+  </div>
+</div>
+
+<div id="modeFolder">
+  <button class="btn-folder-big" id="btnFolder" onclick="elegirCarpetaPWA()">
+    📂 Elegir carpeta de mi PWA o HTML
+  </button>
+  <div class="field-hint">
+    Puede ser una PWA completa o un solo archivo <b>.html</b>. Si no hay <b>index.html</b>, se usa el primer HTML encontrado como entrada automáticamente.
+  </div>
+  <div id="pwaFilesBox" style="display:none">
+    <h3>Archivos detectados</h3>
+    <div class="pwa-info-box" id="pwaFilesList"></div>
+  </div>
+</div>
+
+<div id="modeURL" style="display:none">
+  <div class="field">
+    <label class="field-label">URL de tu PWA publicada</label>
+    <input type="url" id="pwaURL" placeholder="https://mi-pwa.vercel.app" autocomplete="off" spellcheck="false">
+    <div class="field-hint">
+      La app Android cargará esa URL dentro de una WebView.
+    </div>
+  </div>
+</div>
+
+<h3>3 · Datos de la app</h3>
+
+<div class="grid-2">
+  <div class="field">
+    <label class="field-label">Nombre del proyecto</label>
+    <input type="text" id="projName" value="MiPWA" autocomplete="off" spellcheck="false">
+    <div class="field-hint" style="font-size:10px">Se usa para el APK y el tag de release.</div>
+  </div>
+  <div class="field">
+    <label class="field-label">Nombre mostrado</label>
+    <input type="text" id="appLabel" value="Mi PWA" autocomplete="off" spellcheck="false">
+    <div class="field-hint" style="font-size:10px">Aparece bajo el icono en Android.</div>
+  </div>
+</div>
+
+<div class="field">
+  <label class="field-label">Package ID</label>
+  <input type="text" id="packageId" value="com.ejemplo.mipwa" autocomplete="off" spellcheck="false">
+</div>
+
+<div class="grid-2">
+  <div class="field">
+    <label class="field-label">Versión</label>
+    <input type="text" id="versionName" value="1.0.0" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="field">
+    <label class="field-label">Version code</label>
+    <input type="number" id="versionCode" value="1" min="1">
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="field">
+    <label class="field-label">Color primario</label>
+    <div class="color-field">
+      <input type="color" id="primaryColor" value="#3b82f6">
+      <input type="text" id="primaryHex" value="#3B82F6" maxlength="7" style="font-family:ui-monospace,monospace;text-transform:uppercase;">
+    </div>
+  </div>
+  <div class="field">
+    <label class="field-label">Color secundario</label>
+    <div class="color-field">
+      <input type="color" id="secondaryColor" value="#a855f7">
+      <input type="text" id="secondaryHex" value="#A855F7" maxlength="7" style="font-family:ui-monospace,monospace;text-transform:uppercase;">
+    </div>
+  </div>
+</div>
+
+<h3>4 · Icono de la app</h3>
+
+<div class="field">
+  <label class="field-label">Emoji o letra</label>
+  <input type="text" id="iconText" value="🚀" autocomplete="off" maxlength="4" style="font-size:18px;text-align:center;font-family:'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',system-ui;">
+  <div class="emoji-presets" id="emojiPresets">
+    <button type="button" class="emoji-preset sel" data-e="🚀">🚀</button>
+    <button type="button" class="emoji-preset" data-e="📱">📱</button>
+    <button type="button" class="emoji-preset" data-e="⚡">⚡</button>
+    <button type="button" class="emoji-preset" data-e="🎯">🎯</button>
+    <button type="button" class="emoji-preset" data-e="📝">📝</button>
+    <button type="button" class="emoji-preset" data-e="🛒">🛒</button>
+    <button type="button" class="emoji-preset" data-e="💬">💬</button>
+    <button type="button" class="emoji-preset" data-e="🎮">🎮</button>
+    <button type="button" class="emoji-preset" data-e="📊">📊</button>
+    <button type="button" class="emoji-preset" data-e="M">M</button>
+    <button type="button" class="emoji-preset" data-e="A">A</button>
+  </div>
+</div>
+
+<div class="icon-preview-row">
+  <div class="icon-preview-item">
+    <img id="prev48" width="48" height="48" alt="48">
+    <span>mdpi</span>
+  </div>
+  <div class="icon-preview-item">
+    <img id="prev72" width="56" height="56" alt="72">
+    <span>hdpi</span>
+  </div>
+  <div class="icon-preview-item">
+    <img id="prev192" width="64" height="64" alt="192">
+    <span>xxxhdpi</span>
+  </div>
+</div>
+
+<h3>5 · Permisos</h3>
+
+<label class="checkbox-row on" id="pInternet">
+  <input type="checkbox" id="chkInternet" checked onchange="toggleFeature(this)">
+  <div class="info">
+    <div class="title">🌐 Acceso a internet</div>
+    <div class="desc">Obligatorio si cargas desde URL. Inofensivo en modo local.</div>
+  </div>
+</label>
+
+<label class="checkbox-row" id="pStorage">
+  <input type="checkbox" id="chkStorage" onchange="toggleFeature(this)">
+  <div class="info">
+    <div class="title">📁 Almacenamiento</div>
+    <div class="desc">Solo si tu PWA descarga archivos.</div>
+  </div>
+</label>
+
+<label class="checkbox-row" id="pVibrate">
+  <input type="checkbox" id="chkVibrate" onchange="toggleFeature(this)">
+  <div class="info">
+    <div class="title">📳 Vibración</div>
+    <div class="desc">Para que la PWA pueda vibrar en interacciones.</div>
+  </div>
+</label>
+
+<label class="checkbox-row" id="pCamera">
+  <input type="checkbox" id="chkCamera" onchange="toggleFeature(this)">
+  <div class="info">
+    <div class="title">📷 Cámara</div>
+    <div class="desc">Si tu PWA usa getUserMedia o input type=file con capture.</div>
+  </div>
+</label>
+
+<label class="checkbox-row" id="pLocation">
+  <input type="checkbox" id="chkLocation" onchange="toggleFeature(this)">
+  <div class="info">
+    <div class="title">📍 Ubicación</div>
+    <div class="desc">Si tu PWA usa navigator.geolocation.</div>
+  </div>
+</label>
+
+<div class="bottom-dock" id="bottomDock">
+  <button class="dock-btn primary" id="btnCompilar" onclick="compilar()">
+    🚀 Compilar APK
+  </button>
+</div>
+
+<div id="modalProgress" class="modal-overlay">
+  <div class="modal-content">
+    <h3 class="modal-title" id="progressTitle">⏳ Compilando…</h3>
+    <div class="modal-body">
+      <div class="progress-outer">
+        <div class="progress-inner" id="progressBar"></div>
+      </div>
+      <div class="log-box" id="logBox"></div>
+      <div class="result-actions" id="progressActions" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   ESTADO
+   ========================================================= */
+let dirHandlePWA = null;
+let pwaFiles = [];
+let pwaMode = 'folder';
+let repoVisibility = 'public';
+let compilando = false;
+let conexionOk = false;
+let usuarioGitHub = null;
+
+const API = 'https://api.github.com';
+const LS_PAT = 'androidforge_pat';
+const LS_OWNER = 'androidforge_owner';
+const LS_REPO = 'androidforge_repo';
+const WORKFLOW_FILE = 'build.yml';
+
+/* =========================================================
+   INICIALIZACIÓN
+   ========================================================= */
+(function init() {
+  const patGuardado = localStorage.getItem(LS_PAT);
+  if (patGuardado) {
+    document.getElementById('pat').value = patGuardado;
+    document.getElementById('chkRemember').checked = true;
+    document.getElementById('rowRemember').classList.add('on');
+  }
+  const ownerGuardado = localStorage.getItem(LS_OWNER);
+  if (ownerGuardado) document.getElementById('owner').value = ownerGuardado;
+  const repoGuardado = localStorage.getItem(LS_REPO);
+  if (repoGuardado) document.getElementById('repo').value = repoGuardado;
+
+  actualizarPreviews();
+  actualizarStatus();
+})();
+
+function toggleRemember() {
+  const on = document.getElementById('chkRemember').checked;
+  document.getElementById('rowRemember').classList.toggle('on', on);
+  if (!on) localStorage.removeItem(LS_PAT);
+}
+
+function setStatus(tipo, txt) {
+  document.getElementById('statusDot').className = 'status-dot ' + (tipo || '');
+  document.getElementById('statusText').textContent = txt;
+}
+
+function actualizarStatus() {
+  const pat = document.getElementById('pat').value.trim();
+  const owner = document.getElementById('owner').value.trim();
+  if (!pat) { setStatus('', 'Falta el token'); return; }
+  if (!owner) { setStatus('', 'Falta el owner'); return; }
+  if (conexionOk) setStatus('ok', 'Conectado · ' + (usuarioGitHub?.login || 'listo'));
+  else setStatus('', 'Listo (sin probar conexión)');
+}
+
+/* =========================================================
+   PROBAR CONEXIÓN
+   ========================================================= */
+async function probarConexion() {
+  const pat = document.getElementById('pat').value.trim();
+  if (!pat) {
+    mostrarConnResult('error', 'Pega primero tu token de GitHub.');
+    return;
+  }
+
+  const btn = document.getElementById('btnTest');
+  btn.disabled = true;
+  btn.classList.add('testing');
+  btn.innerHTML = '⏳ Probando conexión…';
+  document.getElementById('connResult').classList.remove('visible');
+
+  try {
+    const res = await fetch(API + '/user', {
+      headers: {
+        'Authorization': 'Bearer ' + pat,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    });
+
+    if (!res.ok) {
+      let msg = res.status + ' ' + res.statusText;
+      try {
+        const err = await res.json();
+        msg = err.message || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    const user = await res.json();
+    const scopesHeader = res.headers.get('x-oauth-scopes') || '';
+    const scopes = scopesHeader.split(',').map(s => s.trim()).filter(Boolean);
+
+    let rateInfo = null;
+    try {
+      const rateRes = await fetch(API + '/rate_limit', {
+        headers: { 'Authorization': 'Bearer ' + pat }
+      });
+      if (rateRes.ok) rateInfo = await rateRes.json();
+    } catch {}
+
+    usuarioGitHub = user;
+    conexionOk = true;
+
+    const ownerInput = document.getElementById('owner');
+    if (!ownerInput.value.trim()) {
+      ownerInput.value = user.login;
+      document.getElementById('ownerHint').innerHTML =
+        '✅ Rellenado automáticamente: <b>' + escapeHTML(user.login) + '</b>';
+    }
+
+    if (document.getElementById('chkRemember').checked) {
+      localStorage.setItem(LS_PAT, pat);
+      localStorage.setItem(LS_OWNER, ownerInput.value);
+      localStorage.setItem(LS_REPO, document.getElementById('repo').value);
+    }
+
+    mostrarConexionExitosa(user, scopes, rateInfo);
+    setStatus('ok', 'Conectado · ' + user.login);
+
+  } catch (e) {
+    conexionOk = false;
+    usuarioGitHub = null;
+    console.error(e);
+    mostrarConnResult('error', 'No se pudo conectar con GitHub: ' + e.message);
+    setStatus('err', 'Error de conexión');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('testing');
+    btn.innerHTML = '🔌 Probar conexión con GitHub';
+  }
+}
+
+function mostrarConexionExitosa(user, scopes, rateInfo) {
+  const box = document.getElementById('connResult');
+
+  const requeridos = ['repo', 'workflow'];
+  const tieneTodos = requeridos.every(r => scopes.includes(r) || scopes.includes('admin:org'));
+
+  const rateCore = rateInfo?.resources?.core || rateInfo?.rate || {};
+  const rateLimit = rateCore.limit || '—';
+  const rateRemaining = rateCore.remaining !== undefined ? rateCore.remaining : '—';
+  const rateReset = rateCore.reset ? new Date(rateCore.reset * 1000).toLocaleTimeString('es', { hour12: false }) : '—';
+
+  const scopesHTML = requeridos.map(s => {
+    const tiene = scopes.includes(s) || scopes.includes('admin:org');
+    return `<span class="scope-badge ${tiene ? 'have' : 'missing'}">${tiene ? '✅' : '❌'} ${s}</span>`;
+  }).join('');
+
+  const otrosScopes = scopes.filter(s => !requeridos.includes(s) && s !== 'admin:org');
+  const otrosHTML = otrosScopes.length > 0
+    ? otrosScopes.map(s => `<span class="scope-badge have">➕ ${s}</span>`).join('')
+    : '<span style="color:#64748b;font-size:10px">(ninguno extra)</span>';
+
+  let warningHTML = '';
+  if (!tieneTodos) {
+    warningHTML = `
+      <div class="conn-warn">
+        ⚠️ <b>Tu token no tiene todos los scopes necesarios.</b><br>
+        Edítalo en <b>github.com/settings/tokens</b> y activa <code>repo</code> y <code>workflow</code>.
+      </div>`;
+  }
+
+  box.className = 'conn-result visible ' + (tieneTodos ? 'success' : 'warning');
+  box.innerHTML = `
+    <div class="conn-user">
+      ${user.avatar_url ? `<img src="${user.avatar_url}" alt="avatar">` : ''}
+      <div class="info">
+        <div class="name">${escapeHTML(user.name || user.login)}</div>
+        <div class="login">@${escapeHTML(user.login)}${user.plan ? ' · plan ' + escapeHTML(user.plan.name || '') : ''}</div>
+      </div>
+    </div>
+    <div class="conn-stats">
+      <div class="stat-item">
+        <div class="lbl">Repos públicos</div>
+        <div class="val">${user.public_repos || 0}</div>
+      </div>
+      <div class="stat-item">
+        <div class="lbl">Rate limit</div>
+        <div class="val">${rateRemaining}/${rateLimit}</div>
+      </div>
+      <div class="stat-item">
+        <div class="lbl">Reset</div>
+        <div class="val">${rateReset}</div>
+      </div>
+      <div class="stat-item">
+        <div class="lbl">Seguidores</div>
+        <div class="val">${user.followers || 0}</div>
+      </div>
+    </div>
+    <div class="conn-scopes">
+      <div class="scopes-title">Scopes del token</div>
+      <div class="scopes-list">
+        ${scopesHTML}
+        ${otrosHTML}
+      </div>
+    </div>
+    ${warningHTML}
+  `;
+}
+
+function mostrarConnResult(tipo, msg) {
+  const box = document.getElementById('connResult');
+  box.className = 'conn-result visible ' + tipo;
+  box.innerHTML = (tipo === 'error' ? '❌ ' : '') + escapeHTML(msg);
+}
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+function pascalCase(s) {
+  return (s || '').replace(/[^a-zA-Z0-9\s-]/g, ' ').split(/[\s-]+/)
+    .filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join('');
+}
+function sanitizarPackage(p) {
+  return (p || '').split('.').map(s => s.replace(/[^a-z0-9]/gi, '').toLowerCase())
+    .filter(Boolean).join('.');
+}
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function formatBytes(b) {
+  if (!b) return '0 B';
+  const k = 1024, u = ['B','KB','MB','GB'];
+  const i = Math.min(Math.floor(Math.log(b) / Math.log(k)), u.length - 1);
+  return (b / Math.pow(k, i)).toFixed(i === 0 ? 0 : 1) + ' ' + u[i];
+}
+
+/* =========================================================
+   SEGMENTADOS
+   ========================================================= */
+document.querySelectorAll('#pwaMode button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#pwaMode button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    pwaMode = b.dataset.v;
+    document.getElementById('modeFolder').style.display = pwaMode === 'folder' ? 'block' : 'none';
+    document.getElementById('modeURL').style.display = pwaMode === 'url' ? 'block' : 'none';
+  });
+});
+
+document.querySelectorAll('#repoVisibility button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#repoVisibility button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    repoVisibility = b.dataset.v;
+  });
+});
+
+/* =========================================================
+   COLORES
+   ========================================================= */
+function vincularColor(pickId, hexId, onChange) {
+  const pick = document.getElementById(pickId);
+  const hex = document.getElementById(hexId);
+  pick.addEventListener('input', () => { hex.value = pick.value.toUpperCase(); onChange && onChange(); });
+  hex.addEventListener('input', () => {
+    let v = hex.value.trim();
+    if (!v.startsWith('#')) v = '#' + v;
+    if (/^#[0-9a-f]{6}$/i.test(v)) { pick.value = v; onChange && onChange(); }
+  });
+}
+vincularColor('primaryColor', 'primaryHex', actualizarPreviews);
+vincularColor('secondaryColor', 'secondaryHex', actualizarPreviews);
+
+/* =========================================================
+   ICONOS
+   ========================================================= */
+function dibujarIcono(ctx, size, opts) {
+  const grad = ctx.createLinearGradient(0, 0, size, size);
+  grad.addColorStop(0, opts.c1);
+  grad.addColorStop(1, opts.c2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const isEmoji = /\p{Extended_Pictographic}/u.test(opts.icon);
+  const fontSize = Math.floor(size * (isEmoji ? 0.55 : 0.65));
+  ctx.font = `${fontSize}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",system-ui,sans-serif`;
+  if (!isEmoji) ctx.fillStyle = '#fff';
+  ctx.fillText(opts.icon, size / 2, size / 2 + size * 0.02);
+}
+
+async function generarIconoBlob(size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  dibujarIcono(ctx, size, {
+    icon: document.getElementById('iconText').value || '🚀',
+    c1: document.getElementById('primaryHex').value,
+    c2: document.getElementById('secondaryHex').value
+  });
+  return new Promise(res => canvas.toBlob(res, 'image/png'));
+}
+
+let previewTimer = null;
+function actualizarPreviews() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(async () => {
+    for (const [id, size] of [['prev48', 48], ['prev72', 72], ['prev192', 192]]) {
+      const blob = await generarIconoBlob(size);
+      const img = document.getElementById(id);
+      if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+      const url = URL.createObjectURL(blob);
+      img.src = url;
+      img.dataset.url = url;
+    }
+  }, 100);
+}
+
+document.getElementById('iconText').addEventListener('input', () => {
+  document.querySelectorAll('.emoji-preset').forEach(b => b.classList.remove('sel'));
+  actualizarPreviews();
+});
+document.querySelectorAll('.emoji-preset').forEach(b => {
+  b.addEventListener('click', () => {
+    document.getElementById('iconText').value = b.dataset.e;
+    document.querySelectorAll('.emoji-preset').forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel');
+    actualizarPreviews();
+  });
+});
+
+function toggleFeature(chk) {
+  chk.closest('.checkbox-row').classList.toggle('on', chk.checked);
+}
+
+/* =========================================================
+   ELEGIR CARPETA — CON AUTORELLENO
+   ========================================================= */
+async function elegirCarpetaPWA() {
+  if (!window.showDirectoryPicker) {
+    alert('Tu navegador no soporta la API de Directorios.\nUsa Chrome, Edge o Kiwi Browser.');
+    return;
+  }
+  try {
+    dirHandlePWA = await window.showDirectoryPicker();
+    const nombreCarpeta = dirHandlePWA.name;
+
+    document.getElementById('btnFolder').classList.add('picked');
+    document.getElementById('btnFolder').innerHTML = '✅ ' + escapeHTML(nombreCarpeta);
+
+    autocompletarDesdeNombreCarpeta(nombreCarpeta);
+
+    setStatus('busy', 'Leyendo archivos…');
+    pwaFiles = await leerCarpetaRecursivo(dirHandlePWA, '');
+    setStatus('ok', pwaFiles.length + ' archivos · listo');
+    renderPwaFiles();
+  } catch (err) {
+    if (err && err.name !== 'AbortError') {
+      console.error(err);
+      alert('Error: ' + err.message);
+    }
+  }
+}
+
+function autocompletarDesdeNombreCarpeta(nombreCarpeta) {
+  const proyectoTmp = pascalCase(nombreCarpeta) || 'MiPWA';
+
+  const legible = nombreCarpeta
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map(w => w[0].toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+
+  const appLabel = legible || 'Mi PWA';
+
+  const slug = nombreCarpeta
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 20) || 'mipwa';
+  const packageId = 'com.ejemplo.' + slug;
+
+  const repoSlug = nombreCarpeta
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 100) || 'android-forge';
+
+  document.getElementById('projName').value = proyectoTmp;
+  document.getElementById('appLabel').value = appLabel;
+  document.getElementById('packageId').value = packageId;
+  document.getElementById('repo').value = repoSlug;
+
+  const repoHint = document.getElementById('repoHint');
+  if (repoHint) {
+    repoHint.innerHTML = `✅ Autorellenado desde la carpeta: <b>${escapeHTML(repoSlug)}</b>. Se creará si no existe.`;
+  }
+
+  document.querySelector('.top-bar-title').textContent = 'Android Forge · ' + proyectoTmp;
+
+  ['projName', 'appLabel', 'packageId', 'repo'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.transition = 'background 0.4s ease';
+    el.style.background = 'rgba(74,222,128,0.15)';
+    setTimeout(() => {
+      el.style.background = '';
+    }, 700);
+  });
+}
+
+/* ★ Lectura recursiva con detección automática de HTML de entrada ★ */
+async function leerCarpetaRecursivo(dir, prefijo) {
+  const out = [];
+  for await (const [name, handle] of dir.entries()) {
+    if (name.startsWith('.')) continue;
+    if (name === 'node_modules') continue;
+
+    if (handle.kind === 'file') {
+      const file = await handle.getFile();
+      const path = prefijo + name;
+      const ext = name.split('.').pop().toLowerCase();
+
+      const binarias = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'woff', 'woff2', 'ttf', 'otf', 'mp3', 'mp4', 'webm', 'pdf', 'zip'];
+      if (binarias.includes(ext)) {
+        out.push({ path, blob: file, isBinary: true, size: file.size });
+      } else {
+        const content = await file.text();
+        out.push({ path, content, isBinary: false, size: file.size });
+      }
+    } else if (handle.kind === 'directory') {
+      const sub = await leerCarpetaRecursivo(handle, prefijo + name + '/');
+      out.push(...sub);
+    }
+  }
+
+  // ★ En la raíz: si no hay index.html pero sí otros .html, usar el primero como entrada ★
+  if (prefijo === '') {
+    const tieneIndex = out.some(f => f.path === 'index.html');
+    if (!tieneIndex) {
+      const primerHTML = out.find(f => !f.isBinary && /\.html?$/i.test(f.path));
+      if (primerHTML) {
+        console.log('No hay index.html, usando', primerHTML.path, 'como entrada');
+        primerHTML.pathOriginal = primerHTML.path;
+        primerHTML.path = 'index.html';
+      }
+    }
+  }
+
+  return out;
+}
+
+function renderPwaFiles() {
+  const cont = document.getElementById('pwaFilesList');
+  const box = document.getElementById('pwaFilesBox');
+  box.style.display = 'block';
+
+  let html = '';
+  let totalBytes = 0;
+  let tieneIndex = false;
+  let entradaRenombrada = null;
+
+  for (const f of pwaFiles) {
+    if (f.path === 'index.html') {
+      tieneIndex = true;
+      if (f.pathOriginal) entradaRenombrada = f.pathOriginal;
+    }
+    totalBytes += f.size || 0;
+    html += `<div class="file-item">📄 ${escapeHTML(f.pathOriginal || f.path)} <span style="color:#64748b">(${formatBytes(f.size)})</span></div>`;
+  }
+
+  if (!tieneIndex) {
+    html = `<div class="file-item warn">⚠️ No hay ningún archivo .html en la carpeta.</div>` + html;
+  } else if (entradaRenombrada) {
+    html = `<div class="file-item ok">✅ Entrada: <b>${escapeHTML(entradaRenombrada)}</b> (usado como index.html)</div>` + html;
+  } else {
+    html = `<div class="file-item ok">✅ index.html detectado</div>` + html;
+  }
+
+  html += `<div style="border-top:1px solid #1f2937;margin-top:6px;padding-top:6px;color:#60a5fa;font-weight:700">Total: ${pwaFiles.length} archivos · ${formatBytes(totalBytes)}</div>`;
+  cont.innerHTML = html;
+}
+
+/* =========================================================
+   GENERADORES
+   ========================================================= */
+function genSettingsGradle(proyecto) {
+  return `pluginManagement {
+    repositories {
+        google {
+            content {
+                includeGroupByRegex("com\\\\.android.*")
+                includeGroupByRegex("com\\\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "${proyecto}"
+include(":app")
+`;
+}
+
+function genRootBuildGradle() {
+  return `plugins {
+    id("com.android.application") version "8.5.2" apply false
+    id("org.jetbrains.kotlin.android") version "2.0.20" apply false
+}
+`;
+}
+
+function genGradleProperties() {
+  return `org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+org.gradle.parallel=true
+org.gradle.caching=true
+android.useAndroidX=true
+android.nonTransitiveRClass=true
+kotlin.code.style=official
+`;
+}
+
+function genLibsVersions() {
+  return `[versions]
+agp = "8.5.2"
+kotlin = "2.0.20"
+coreKtx = "1.13.1"
+appcompat = "1.7.0"
+webkit = "1.12.1"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+`;
+}
+
+function genAppBuildGradle(pkg, minSdk, targetSdk, versionCode, versionName) {
+  return `plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+}
+
+android {
+    namespace = "${pkg}"
+    compileSdk = ${targetSdk}
+
+    defaultConfig {
+        applicationId = "${pkg}"
+        minSdk = ${minSdk}
+        targetSdk = ${targetSdk}
+        versionCode = ${versionCode}
+        versionName = "${versionName}"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.webkit)
+}
+`;
+}
+
+function genAndroidManifest(pkg, appLabel, features) {
+  const permisos = [];
+  if (features.internet) permisos.push('<uses-permission android:name="android.permission.INTERNET" />');
+  if (features.storage) {
+    permisos.push('<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />');
+    permisos.push('<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />');
+  }
+  if (features.vibrate) permisos.push('<uses-permission android:name="android.permission.VIBRATE" />');
+  if (features.camera) permisos.push('<uses-permission android:name="android.permission.CAMERA" />');
+  if (features.location) {
+    permisos.push('<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />');
+    permisos.push('<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />');
+  }
+
+  const themeName = 'Theme.' + (appLabel.replace(/[^a-zA-Z0-9]/g, '') || 'AppTheme');
+
+  return `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+${permisos.map(p => '    ' + p).join('\n')}
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/${themeName}">
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/${themeName}">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+`;
+}
+
+function genMainActivity(pkg, pwaMode, pwaURL) {
+  const loadCode = pwaMode === 'url'
+    ? `webView.loadUrl("${pwaURL}")`
+    : `webView.loadUrl("https://appassets.androidplatform.net/assets/index.html")`;
+
+  const assetLoader = pwaMode === 'folder'
+    ? `val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()`
+    : `// Modo URL remota`;
+
+  const intercept = pwaMode === 'folder'
+    ? `override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                return assetLoader.shouldInterceptRequest(request.url)
+            }`
+    : '';
+
+  return `package ${pkg}
+
+import android.annotation.SuppressLint
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.view.View
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.ProgressBar
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity${pwaMode === 'folder' ? '\nimport androidx.webkit.WebViewAssetLoader' : ''}
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var webView: WebView
+    private lateinit var progressBar: ProgressBar
+    private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        fileChooserCallback?.onReceiveValue(
+            WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        )
+        fileChooserCallback = null
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        webView = findViewById(R.id.webview)
+        progressBar = findViewById(R.id.progressBar)
+
+        ${assetLoader}
+
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            allowFileAccess = true
+            mediaPlaybackRequiresUserGesture = false
+            loadWithOverviewMode = true
+            useWideViewPort = true
+            setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
+        }
+
+        webView.webViewClient = object : WebViewClient() {
+            ${intercept}
+
+            override fun shouldOverrideUrlLoading(
+                view: WebView,
+                request: WebResourceRequest
+            ): Boolean {
+                val url = request.url.toString()
+                val esInterno = url.startsWith("https://appassets.androidplatform.net/")${pwaMode === 'url' ? ` || url.startsWith("${pwaURL}")` : ''}
+                if (!esInterno && (url.startsWith("http://") || url.startsWith("https://"))) {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    return true
+                }
+                return false
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView, newProgress: Int) {
+                progressBar.progress = newProgress
+                progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
+            }
+
+            override fun onShowFileChooser(
+                webView: WebView,
+                filePathCallback: ValueCallback<Array<Uri>>,
+                fileChooserParams: FileChooserParams
+            ): Boolean {
+                fileChooserCallback?.onReceiveValue(null)
+                fileChooserCallback = filePathCallback
+                return try {
+                    fileChooserLauncher.launch(fileChooserParams.createIntent())
+                    true
+                } catch (e: Exception) {
+                    fileChooserCallback = null
+                    false
+                }
+            }
+        }
+
+        ${loadCode}
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+    }
+}
+`;
+}
+
+function genActivityMainXML() {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white">
+
+    <WebView
+        android:id="@+id/webview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_gravity="top"
+        android:max="100"
+        android:visibility="gone" />
+
+</FrameLayout>
+`;
+}
+
+function genStringsXML(appLabel) {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">${escapeHTML(appLabel)}</string>
+</resources>
+`;
+}
+
+function genThemesXML(appLabel) {
+  const themeName = 'Theme.' + (appLabel.replace(/[^a-zA-Z0-9]/g, '') || 'AppTheme');
+  return `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="${themeName}" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
+`;
+}
+
+function genBackupRules() {
+  return `<?xml version="1.0" encoding="utf-8"?>\n<full-backup-content />\n`;
+}
+function genDataExtractionRules() {
+  return `<?xml version="1.0" encoding="utf-8"?>\n<data-extraction-rules>\n    <cloud-backup />\n    <device-transfer />\n</data-extraction-rules>\n`;
+}
+function genProguard() {
+  return `-keepattributes *Annotation*\n-keepclassmembers class * {\n    @android.webkit.JavascriptInterface <methods>;\n}\n`;
+}
+function genGitignore() {
+  return `*.iml\n.gradle\n/local.properties\n/.idea\n.DS_Store\n/build\n/captures\n.externalNativeBuild\n.cxx\nlocal.properties\n*.apk\n*.aab\n`;
+}
+
+function genREADME(proyecto, pkg, appLabel, pwaMode, pwaURL) {
+  const modoDesc = pwaMode === 'url'
+    ? `Carga la URL: \`${pwaURL}\``
+    : `Empaqueta archivos locales desde \`app/src/main/assets/\``;
+
+  return `# ${appLabel}
+
+APK generado automáticamente desde una PWA o HTML con **Android Forge**.
+
+## Info
+
+- **Package**: \`${pkg}\`
+- **Modo**: ${pwaMode === 'folder' ? 'PWA local (empaquetada)' : 'URL remota'}
+- **${modoDesc}**
+
+## Cómo compilar manualmente
+
+\`\`\`bash
+gradle assembleDebug
+\`\`\`
+
+APK en: \`app/build/outputs/apk/debug/app-debug.apk\`
+`;
+}
+
+/* ★ WORKFLOW BLINDADO ★
+   - setup-android@v4 con packages explícitos
+   - setup-gradle@v4 instala Gradle 8.9 y lo añade al PATH
+   - Usa "gradle" directamente, no "./gradlew"
+*/
+function genGitHubWorkflow() {
+  return `name: Build APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Nombre de la carpeta del proyecto en apps/'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-\${{ runner.os }}-\${{ hashFiles(format('apps/{0}/**/*.gradle*', inputs.project)) }}
+          restore-keys: |
+            gradle-\${{ runner.os }}-
+
+      - name: Build APK
+        working-directory: apps/\${{ inputs.project }}
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Read version
+        id: ver
+        working-directory: apps/\${{ inputs.project }}
+        run: |
+          VERSION=\$(grep -oP 'versionName = "\\\\K[^"]+' app/build.gradle.kts || echo "1.0.0")
+          echo "version=\$VERSION" >> \$GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: \${{ inputs.project }}-v\${{ steps.ver.outputs.version }}-\${{ github.run_number }}
+          name: "\${{ inputs.project }} v\${{ steps.ver.outputs.version }} (build \${{ github.run_number }})"
+          files: apps/\${{ inputs.project }}/app/build/outputs/apk/debug/app-debug.apk
+          draft: false
+          prerelease: false
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: \${{ inputs.project }}-apk
+          path: apps/\${{ inputs.project }}/app/build/outputs/apk/debug/app-debug.apk
+`;
+}
+
+/* =========================================================
+   COMPILAR
+   ========================================================= */
+async function compilar() {
+  if (compilando) return;
+
+  const pat = document.getElementById('pat').value.trim();
+  const owner = document.getElementById('owner').value.trim();
+  const repo = document.getElementById('repo').value.trim();
+  const proyecto = pascalCase(document.getElementById('projName').value) || 'MiPWA';
+  const pkg = sanitizarPackage(document.getElementById('packageId').value);
+  const appLabel = document.getElementById('appLabel').value.trim() || 'Mi PWA';
+  const versionCode = parseInt(document.getElementById('versionCode').value, 10) || 1;
+  const versionName = document.getElementById('versionName').value.trim() || '1.0.0';
+
+  if (!pat) { alert('Falta el token de GitHub.'); return; }
+  if (!owner) { alert('Falta el usuario/organización.'); return; }
+  if (!repo) { alert('Falta el repositorio.'); return; }
+  if (!pkg || pkg.split('.').length < 2) { alert('Package ID inválido.'); return; }
+
+  const pwaURL = document.getElementById('pwaURL').value.trim();
+  if (pwaMode === 'folder' && (!pwaFiles || pwaFiles.length === 0)) {
+    alert('No hay archivos de PWA. Elige la carpeta primero.'); return;
+  }
+  if (pwaMode === 'url' && !pwaURL) {
+    alert('Falta la URL de la PWA.'); return;
+  }
+
+  if (document.getElementById('chkRemember').checked) {
+    localStorage.setItem(LS_PAT, pat);
+    localStorage.setItem(LS_OWNER, owner);
+    localStorage.setItem(LS_REPO, repo);
+  }
+
+  compilando = true;
+  abrirModalProgress();
+  limpiarLog();
+
+  try {
+    log('info', '🚀 Iniciando compilación…');
+    log('muted', 'Proyecto: ' + proyecto + ' · ' + pkg);
+    log('muted', 'Repo: ' + owner + '/' + repo);
+
+    setProgress(5);
+    log('info', '🔐 Verificando token…');
+    const user = await ghAPI('GET', '/user', pat);
+    log('ok', '✅ Token válido. Usuario: ' + user.login);
+
+    setProgress(10);
+    log('info', '📦 Verificando repositorio ' + owner + '/' + repo + '…');
+    const repoInfo = await verificarOCrearRepo(owner, repo, pat);
+    log('ok', '✅ Repositorio listo: ' + repoInfo.html_url);
+
+    setProgress(15);
+    log('info', '📄 Generando archivos del proyecto Android…');
+    const archivosProyecto = await generarArchivosProyecto(proyecto, pkg, appLabel, versionCode, versionName, pwaMode, pwaURL);
+    log('ok', '✅ ' + archivosProyecto.length + ' archivos generados');
+
+    setProgress(20);
+    log('info', '⬆️ Subiendo a GitHub…');
+    await subirProyecto(owner, repo, pat, proyecto, archivosProyecto);
+    log('ok', '✅ Archivos subidos');
+
+    setProgress(35);
+    log('info', '⚡ Disparando GitHub Actions…');
+    const runId = await dispararWorkflow(owner, repo, pat, proyecto);
+    log('ok', '✅ Workflow disparado');
+
+    setProgress(40);
+    const resultado = await monitorearWorkflow(owner, repo, pat, runId);
+
+    if (!resultado.success) {
+      throw new Error('El build falló. Revisa los logs en GitHub: ' + resultado.htmlUrl);
+    }
+
+    setProgress(95);
+    log('info', '🔎 Buscando APK en releases…');
+    const apkInfo = await buscarAPKReciente(owner, repo, pat, proyecto);
+    setProgress(100);
+
+    if (apkInfo) {
+      log('ok', '🎉 ¡APK listo!');
+      log('muted', '📦 ' + apkInfo.name + ' (' + formatBytes(apkInfo.size) + ')');
+      mostrarResultado(apkInfo, owner, repo, proyecto, resultado);
+    } else {
+      log('warn', '⚠️ Build exitoso pero no se encontró el APK en releases.');
+      mostrarResultado(null, owner, repo, proyecto, resultado);
+    }
+
+  } catch (e) {
+    console.error(e);
+    log('err', '❌ Error: ' + e.message);
+    setStatus('err', 'Error');
+    mostrarResultadoError(e);
+  } finally {
+    compilando = false;
+  }
+}
+
+/* =========================================================
+   GITHUB API
+   ========================================================= */
+async function ghAPI(method, path, pat, body) {
+  const opts = {
+    method,
+    headers: {
+      'Authorization': 'Bearer ' + pat,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+  };
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    let msg = res.status + ' ' + res.statusText;
+    try { const err = await res.json(); msg = err.message || msg; } catch {}
+    throw new Error('GitHub API: ' + msg);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+async function verificarOCrearRepo(owner, repo, pat) {
+  try {
+    const info = await ghAPI('GET', '/repos/' + owner + '/' + repo, pat);
+    log('muted', '   → Repo existente');
+    return info;
+  } catch (e) {
+    if (!e.message.includes('Not Found')) throw e;
+
+    log('muted', '   → Creando repo nuevo…');
+
+    let esOrg = false;
+    try {
+      const u = await ghAPI('GET', '/users/' + owner, pat);
+      esOrg = u.type === 'Organization';
+    } catch {}
+
+    const endpoint = esOrg ? '/orgs/' + owner + '/repos' : '/user/repos';
+    const body = {
+      name: repo,
+      description: 'Proyectos Android generados con Android Forge',
+      private: repoVisibility === 'private',
+      auto_init: true,
+      has_issues: false,
+      has_wiki: false,
+      has_projects: false
+    };
+    const nuevo = await ghAPI('POST', endpoint, pat, body);
+    await new Promise(r => setTimeout(r, 1500));
+    log('ok', '   → Repo creado: ' + nuevo.html_url);
+    return nuevo;
+  }
+}
+
+async function generarArchivosProyecto(proyecto, pkg, appLabel, versionCode, versionName, pwaMode, pwaURL) {
+  const pkgPath = pkg.replace(/\./g, '/');
+  const minSdk = 24;
+  const targetSdk = 34;
+
+  const features = {
+    internet: document.getElementById('chkInternet').checked,
+    storage: document.getElementById('chkStorage').checked,
+    vibrate: document.getElementById('chkVibrate').checked,
+    camera: document.getElementById('chkCamera').checked,
+    location: document.getElementById('chkLocation').checked
+  };
+
+  const base = 'apps/' + proyecto;
+  const archivos = [];
+
+  archivos.push({ path: base + '/settings.gradle.kts', content: genSettingsGradle(proyecto) });
+  archivos.push({ path: base + '/build.gradle.kts', content: genRootBuildGradle() });
+  archivos.push({ path: base + '/gradle.properties', content: genGradleProperties() });
+  archivos.push({ path: base + '/gradle/libs.versions.toml', content: genLibsVersions() });
+  archivos.push({ path: base + '/.gitignore', content: genGitignore() });
+  archivos.push({ path: base + '/README.md', content: genREADME(proyecto, pkg, appLabel, pwaMode, pwaURL) });
+  archivos.push({ path: base + '/app/build.gradle.kts', content: genAppBuildGradle(pkg, minSdk, targetSdk, versionCode, versionName) });
+  archivos.push({ path: base + '/app/proguard-rules.pro', content: genProguard() });
+  archivos.push({ path: base + '/app/src/main/AndroidManifest.xml', content: genAndroidManifest(pkg, appLabel, features) });
+  archivos.push({ path: base + '/app/src/main/java/' + pkgPath + '/MainActivity.kt', content: genMainActivity(pkg, pwaMode, pwaURL) });
+  archivos.push({ path: base + '/app/src/main/res/layout/activity_main.xml', content: genActivityMainXML() });
+  archivos.push({ path: base + '/app/src/main/res/values/strings.xml', content: genStringsXML(appLabel) });
+  archivos.push({ path: base + '/app/src/main/res/values/themes.xml', content: genThemesXML(appLabel) });
+  archivos.push({ path: base + '/app/src/main/res/xml/backup_rules.xml', content: genBackupRules() });
+  archivos.push({ path: base + '/app/src/main/res/xml/data_extraction_rules.xml', content: genDataExtractionRules() });
+
+  const iconSizes = { 'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192 };
+  for (const [dens, size] of Object.entries(iconSizes)) {
+    const blob = await generarIconoBlob(size);
+    archivos.push({ path: base + '/app/src/main/res/mipmap-' + dens + '/ic_launcher.png', blob, isBinary: true });
+  }
+
+  if (pwaMode === 'folder') {
+    for (const f of pwaFiles) {
+      if (f.isBinary) {
+        archivos.push({ path: base + '/app/src/main/assets/' + f.path, blob: f.blob, isBinary: true });
+      } else {
+        archivos.push({ path: base + '/app/src/main/assets/' + f.path, content: f.content });
+      }
+    }
+  }
+
+  // ★ IMPORTANTE: borramos el workflow viejo si existe (para forzar la actualización) ★
+  try {
+    const workflowPath = '.github/workflows/' + WORKFLOW_FILE;
+    const existente = await ghAPI('GET', '/repos/' + owner + '/' + repo + '/contents/' + workflowPath, pat);
+    if (existente && existente.sha) {
+      // Borrar el workflow viejo
+      await ghAPI('DELETE', '/repos/' + owner + '/' + repo + '/contents/' + workflowPath, pat, {
+        message: 'Actualizar workflow a v4 (setup-android + setup-gradle)',
+        sha: existente.sha
+      });
+      log('muted', '   → Workflow viejo eliminado, se reinstalará');
+    }
+  } catch (e) {
+    // No existe, todo bien
+  }
+
+  archivos.push({ path: '.github/workflows/' + WORKFLOW_FILE, content: genGitHubWorkflow() });
+
+  return archivos;
+}
+
+async function subirProyecto(owner, repo, pat, proyecto, archivos) {
+  let refData;
+  try {
+    refData = await ghAPI('GET', '/repos/' + owner + '/' + repo + '/git/refs/heads/main', pat);
+  } catch {
+    refData = await ghAPI('GET', '/repos/' + owner + '/' + repo + '/git/refs/heads/master', pat);
+  }
+
+  const commitSha = refData.object.sha;
+  const commitData = await ghAPI('GET', '/repos/' + owner + '/' + repo + '/git/commits/' + commitSha, pat);
+  const baseTreeSha = commitData.tree.sha;
+
+  log('muted', '   → Subiendo ' + archivos.length + ' archivos…');
+
+  const treeItems = [];
+  let subidos = 0;
+
+  for (const a of archivos) {
+    let contentBase64;
+    if (a.isBinary && a.blob) {
+      contentBase64 = await blobToBase64(a.blob);
+    } else {
+      contentBase64 = btoa(unescape(encodeURIComponent(a.content || '')));
+    }
+
+    const blob = await ghAPI('POST', '/repos/' + owner + '/' + repo + '/git/blobs', pat, {
+      content: contentBase64,
+      encoding: 'base64'
+    });
+
+    treeItems.push({ path: a.path, mode: '100644', type: 'blob', sha: blob.sha });
+    subidos++;
+    if (subidos % 5 === 0) log('muted', '   → ' + subidos + '/' + archivos.length);
+  }
+
+  const newTree = await ghAPI('POST', '/repos/' + owner + '/' + repo + '/git/trees', pat, {
+    base_tree: baseTreeSha,
+    tree: treeItems
+  });
+
+  const newCommit = await ghAPI('POST', '/repos/' + owner + '/' + repo + '/git/commits', pat, {
+    message: `Generar proyecto "${proyecto}" — ${new Date().toISOString()}`,
+    tree: newTree.sha,
+    parents: [commitSha]
+  });
+
+  const branchName = refData.ref.replace('refs/heads/', '');
+  await ghAPI('PATCH', '/repos/' + owner + '/' + repo + '/git/refs/heads/' + branchName, pat, {
+    sha: newCommit.sha,
+    force: false
+  });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function dispararWorkflow(owner, repo, pat, proyecto) {
+  // Esperar 3 segundos para que GitHub procese el commit
+  await new Promise(r => setTimeout(r, 3000));
+
+  const res = await fetch(API + '/repos/' + owner + '/' + repo + '/actions/workflows/' + WORKFLOW_FILE + '/dispatches', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + pat,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ ref: 'main', inputs: { project: proyecto } })
+  });
+
+  if (!res.ok && res.status !== 204) {
+    let msg = res.status + ' ' + res.statusText;
+    try { const err = await res.json(); msg = err.message || msg; } catch {}
+    throw new Error('Al disparar el workflow: ' + msg);
+  }
+
+  await new Promise(r => setTimeout(r, 3000));
+  const runs = await ghAPI('GET', '/repos/' + owner + '/' + repo + '/actions/runs?event=workflow_dispatch&per_page=5', pat);
+  const runReciente = runs.workflow_runs && runs.workflow_runs[0];
+  if (!runReciente) throw new Error('No se pudo encontrar el run recién disparado.');
+  return runReciente.id;
+}
+
+async function monitorearWorkflow(owner, repo, pat, runId) {
+  log('info', '⏳ Esperando build…');
+  log('muted', '   → Cada build tarda ~2-4 minutos');
+
+  let ultimoEstado = '';
+  let inicio = Date.now();
+  const TIMEOUT_MS = 15 * 60 * 1000;
+
+  while (true) {
+    if (Date.now() - inicio > TIMEOUT_MS) throw new Error('Timeout: >15 minutos.');
+
+    await new Promise(r => setTimeout(r, 12000));
+
+    let run;
+    try {
+      run = await ghAPI('GET', '/repos/' + owner + '/' + repo + '/actions/runs/' + runId, pat);
+    } catch (e) {
+      log('warn', '   → Error consultando estado, reintentando…');
+      continue;
+    }
+
+    const estado = run.status;
+    const conclusion = run.conclusion;
+
+    if (estado !== ultimoEstado) {
+      ultimoEstado = estado;
+      const segundos = Math.round((Date.now() - inicio) / 1000);
+      if (estado === 'queued') log('info', '   → En cola (' + segundos + 's)');
+      else if (estado === 'in_progress') log('info', '   → Compilando (' + segundos + 's)');
+    }
+
+    if (estado === 'in_progress') {
+      const progreso = Math.min(90, 40 + ((Date.now() - inicio) / (3 * 60 * 1000)) * 50);
+      setProgress(Math.round(progreso));
+    }
+
+    if (estado === 'completed') {
+      const segundos = Math.round((Date.now() - inicio) / 1000);
+      if (conclusion === 'success') {
+        log('ok', '   → ✅ Build exitoso en ' + segundos + 's');
+        return { success: true, htmlUrl: run.html_url, runId };
+      } else {
+        log('err', '   → ❌ Build falló: ' + conclusion);
+        log('muted', '   → Logs: ' + run.html_url);
+        return { success: false, htmlUrl: run.html_url, runId };
+      }
+    }
+  }
+}
+
+async function buscarAPKReciente(owner, repo, pat, proyecto) {
+  try {
+    const releases = await ghAPI('GET', '/repos/' + owner + '/' + repo + '/releases?per_page=5', pat);
+    for (const rel of releases) {
+      if (!rel.tag_name || !rel.tag_name.startsWith(proyecto + '-')) continue;
+      for (const asset of (rel.assets || [])) {
+        if (asset.name.endsWith('.apk')) {
+          return {
+            name: asset.name,
+            size: asset.size,
+            url: asset.browser_download_url,
+            releaseUrl: rel.html_url,
+            tagName: rel.tag_name
+          };
+        }
+      }
+    }
+    return null;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
+
+/* =========================================================
+   UI: MODAL DE PROGRESO
+   ========================================================= */
+function abrirModalProgress() {
+  document.getElementById('modalProgress').classList.add('visible');
+  document.getElementById('progressActions').style.display = 'none';
+  document.getElementById('progressActions').innerHTML = '';
+  document.getElementById('progressTitle').textContent = '⏳ Compilando…';
+  setProgress(0);
+}
+function cerrarModalProgress() {
+  document.getElementById('modalProgress').classList.remove('visible');
+}
+function setProgress(pct) {
+  document.getElementById('progressBar').style.width = pct + '%';
+}
+function limpiarLog() {
+  document.getElementById('logBox').innerHTML = '';
+}
+function log(tipo, mensaje) {
+  const box = document.getElementById('logBox');
+  const hora = new Date().toLocaleTimeString('es', { hour12: false });
+  const linea = document.createElement('div');
+  linea.innerHTML = `<span class="l-time">[${hora}]</span> <span class="l-${tipo}">${escapeHTML(mensaje)}</span>`;
+  box.appendChild(linea);
+  box.scrollTop = box.scrollHeight;
+}
+
+function mostrarResultado(apkInfo, owner, repo, proyecto, resultado) {
+  document.getElementById('progressTitle').textContent = '🎉 ¡Listo!';
+  setStatus('ok', 'APK generado');
+
+  const box = document.getElementById('progressActions');
+  box.style.display = 'flex';
+  box.innerHTML = '';
+
+  if (apkInfo) {
+    const a = document.createElement('a');
+    a.href = apkInfo.url;
+    a.className = 'primary';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.innerHTML = '⬇️ Descargar APK (' + formatBytes(apkInfo.size) + ')';
+    box.appendChild(a);
+
+    const b = document.createElement('button');
+    b.innerHTML = '📋 Copiar enlace de descarga';
+    b.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(apkInfo.url);
+        b.innerHTML = '✅ Copiado';
+        setTimeout(() => b.innerHTML = '📋 Copiar enlace de descarga', 1500);
+      } catch {}
+    };
+    box.appendChild(b);
+  }
+
+  const c = document.createElement('a');
+  c.href = resultado.htmlUrl;
+  c.target = '_blank';
+  c.rel = 'noopener';
+  c.innerHTML = '🔗 Ver build en GitHub';
+  box.appendChild(c);
+
+  const d = document.createElement('button');
+  d.innerHTML = '✅ Cerrar';
+  d.onclick = cerrarModalProgress;
+  box.appendChild(d);
+}
+
+function mostrarResultadoError(e) {
+  document.getElementById('progressTitle').textContent = '❌ Error';
+  setStatus('err', 'Error');
+  const box = document.getElementById('progressActions');
+  box.style.display = 'flex';
+  box.innerHTML = '';
+
+  // Extraer URL de GitHub del mensaje si existe
+  const urlMatch = (e && e.message || '').match(/https:\/\/github\.com\/[^\s]+/);
+  if (urlMatch) {
+    const a = document.createElement('a');
+    a.href = urlMatch[0];
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.innerHTML = '🔗 Ver logs del error en GitHub';
+    box.appendChild(a);
+  }
+
+  const btn = document.createElement('button');
+  btn.innerHTML = '✕ Cerrar';
+  btn.onclick = cerrarModalProgress;
+  box.appendChild(btn);
+}
+
+/* =========================================================
+   TECLADO
+   ========================================================= */
+const vv = window.visualViewport;
+if (vv) {
+  const ajustar = () => {
+    const hueco = window.innerHeight - (vv.height + vv.offsetTop);
+    const teclado = hueco > 120 ? Math.round(hueco) : 0;
+    const dock = document.getElementById('bottomDock');
+    if (dock) {
+      dock.style.bottom = teclado + 'px';
+      document.body.style.paddingBottom = (dock.offsetHeight + 30 + teclado) + 'px';
+    }
+  };
+  vv.addEventListener('resize', ajustar);
+  vv.addEventListener('scroll', ajustar);
+  document.addEventListener('focusin', () => setTimeout(ajustar, 200), true);
+  document.addEventListener('focusout', () => setTimeout(ajustar, 200), true);
+  setTimeout(ajustar, 300);
+}
+
+document.getElementById('modalProgress').addEventListener('click', (e) => {
+  if (e.target.id === 'modalProgress' && !compilando) cerrarModalProgress();
+});
+
+['pat', 'owner', 'repo'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    actualizarStatus();
+  });
+});
+</script>
+
+</body>
+</html>
