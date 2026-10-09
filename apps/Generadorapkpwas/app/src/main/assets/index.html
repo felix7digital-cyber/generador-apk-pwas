@@ -555,7 +555,7 @@
   <button class="btn-folder-big" id="btnFolder" onclick="elegirCarpetaPWA()">
     📂 Elegir carpeta de mi PWA o HTML
   </button>
-  <div class="field-hint">
+  <div class="field-hint" id="folderHint">
     Puede ser una PWA completa o un solo archivo <b>.html</b>. Si no hay <b>index.html</b>, se usa el primer HTML encontrado como entrada automáticamente.
   </div>
   <div id="pwaFilesBox" style="display:none">
@@ -750,6 +750,19 @@ const WORKFLOW_FILE = 'build.yml';
   if (ownerGuardado) document.getElementById('owner').value = ownerGuardado;
   const repoGuardado = localStorage.getItem(LS_REPO);
   if (repoGuardado) document.getElementById('repo').value = repoGuardado;
+
+  // Ajustar hint según dispositivo
+  if (!window.showDirectoryPicker) {
+    const hint = document.getElementById('folderHint');
+    if (hint) {
+      hint.innerHTML = '📱 En este dispositivo se abrirá el explorador de archivos de Android. <b>Selecciona la carpeta de tu PWA</b> y se cargarán todos los archivos automáticamente.';
+    }
+    // Cambiar texto del botón
+    const btn = document.getElementById('btnFolder');
+    if (btn && !btn.classList.contains('picked')) {
+      btn.innerHTML = '📂 Elegir carpeta de mi PWA o HTML';
+    }
+  }
 
   actualizarPreviews();
   actualizarStatus();
@@ -1049,13 +1062,20 @@ function toggleFeature(chk) {
 }
 
 /* =========================================================
-   ELEGIR CARPETA — CON AUTORELLENO
+   ★ ELEGIR CARPETA — con detección de API disponible ★
    ========================================================= */
 async function elegirCarpetaPWA() {
-  if (!window.showDirectoryPicker) {
-    alert('Tu navegador no soporta la API de Directorios.\nUsa Chrome, Edge o Kiwi Browser.');
-    return;
+  // Preferimos File System Access API si está disponible (desktop)
+  if (window.showDirectoryPicker) {
+    return elegirCarpetaPWA_FSAccess();
   }
+
+  // Fallback para Android WebView y navegadores sin soporte
+  return elegirCarpetaPWA_Webkit();
+}
+
+/* Desktop: File System Access API (permite escritura) */
+async function elegirCarpetaPWA_FSAccess() {
   try {
     dirHandlePWA = await window.showDirectoryPicker();
     const nombreCarpeta = dirHandlePWA.name;
@@ -1075,6 +1095,102 @@ async function elegirCarpetaPWA() {
       alert('Error: ' + err.message);
     }
   }
+}
+
+/* Android / móvil: input[webkitdirectory] */
+async function elegirCarpetaPWA_Webkit() {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.multiple = true;
+    input.style.display = 'none';
+
+    // Guardar si ya se resolvió para no duplicar
+    let resuelto = false;
+    const finalizar = () => {
+      if (resuelto) return;
+      resuelto = true;
+      try { document.body.removeChild(input); } catch {}
+      resolve();
+    };
+
+    input.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) {
+        finalizar();
+        return;
+      }
+
+      const primeraRuta = files[0].webkitRelativePath || files[0].name;
+      const partes = primeraRuta.split('/');
+      const nombreCarpeta = partes.length > 1 ? partes[0] : 'mi-app';
+
+      setStatus('busy', 'Procesando ' + files.length + ' archivos…');
+
+      const binarias = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'woff', 'woff2', 'ttf', 'otf', 'mp3', 'mp4', 'webm', 'pdf', 'zip'];
+      pwaFiles = [];
+
+      for (const file of files) {
+        const rutaCompleta = file.webkitRelativePath || file.name;
+        // Quitar el nombre de la carpeta raíz: "mi-app/css/style.css" → "css/style.css"
+        const sinRaiz = rutaCompleta.split('/').slice(1).join('/') || file.name;
+
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (binarias.includes(ext)) {
+          pwaFiles.push({
+            path: sinRaiz,
+            blob: file,
+            isBinary: true,
+            size: file.size
+          });
+        } else {
+          const content = await file.text();
+          pwaFiles.push({
+            path: sinRaiz,
+            content,
+            isBinary: false,
+            size: file.size
+          });
+        }
+      }
+
+      // Detección automática de HTML de entrada
+      const tieneIndex = pwaFiles.some(f => f.path === 'index.html');
+      if (!tieneIndex) {
+        const primerHTML = pwaFiles.find(f => !f.isBinary && /\.html?$/i.test(f.path));
+        if (primerHTML) {
+          console.log('No hay index.html, usando', primerHTML.path, 'como entrada');
+          primerHTML.pathOriginal = primerHTML.path;
+          primerHTML.path = 'index.html';
+        }
+      }
+
+      document.getElementById('btnFolder').classList.add('picked');
+      document.getElementById('btnFolder').innerHTML = '✅ ' + escapeHTML(nombreCarpeta);
+
+      autocompletarDesdeNombreCarpeta(nombreCarpeta);
+
+      setStatus('ok', pwaFiles.length + ' archivos · listo');
+      renderPwaFiles();
+
+      finalizar();
+    });
+
+    // El evento "cancel" no está en todos los navegadores, pero ayuda
+    input.addEventListener('cancel', finalizar);
+
+    document.body.appendChild(input);
+    input.click();
+
+    // Timeout de seguridad: si en 60s no pasa nada, resolvemos
+    setTimeout(() => {
+      if (!resuelto && (!input.files || input.files.length === 0)) {
+        finalizar();
+      }
+    }, 60000);
+  });
 }
 
 function autocompletarDesdeNombreCarpeta(nombreCarpeta) {
@@ -1125,7 +1241,7 @@ function autocompletarDesdeNombreCarpeta(nombreCarpeta) {
   });
 }
 
-/* ★ Lectura recursiva con detección automática de HTML de entrada ★ */
+/* Lectura recursiva con File System Access API (desktop) */
 async function leerCarpetaRecursivo(dir, prefijo) {
   const out = [];
   for await (const [name, handle] of dir.entries()) {
@@ -1150,7 +1266,6 @@ async function leerCarpetaRecursivo(dir, prefijo) {
     }
   }
 
-  // ★ En la raíz: si no hay index.html pero sí otros .html, usar el primero como entrada ★
   if (prefijo === '') {
     const tieneIndex = out.some(f => f.path === 'index.html');
     if (!tieneIndex) {
@@ -1576,11 +1691,7 @@ APK en: \`app/build/outputs/apk/debug/app-debug.apk\`
 `;
 }
 
-/* ★ WORKFLOW BLINDADO ★
-   - setup-android@v4 con packages explícitos
-   - setup-gradle@v4 instala Gradle 8.9 y lo añade al PATH
-   - Usa "gradle" directamente, no "./gradlew"
-*/
+/* ★ WORKFLOW BLINDADO ★ */
 function genGitHubWorkflow() {
   return `name: Build APK
 
@@ -1679,10 +1790,10 @@ async function compilar() {
 
   const pwaURL = document.getElementById('pwaURL').value.trim();
   if (pwaMode === 'folder' && (!pwaFiles || pwaFiles.length === 0)) {
-    alert('No hay archivos de PWA. Elige la carpeta primero.'); return;
+    alert('No hay archivos. Elige la carpeta primero.'); return;
   }
   if (pwaMode === 'url' && !pwaURL) {
-    alert('Falta la URL de la PWA.'); return;
+    alert('Falta la URL.'); return;
   }
 
   if (document.getElementById('chkRemember').checked) {
@@ -1712,7 +1823,7 @@ async function compilar() {
 
     setProgress(15);
     log('info', '📄 Generando archivos del proyecto Android…');
-    const archivosProyecto = await generarArchivosProyecto(proyecto, pkg, appLabel, versionCode, versionName, pwaMode, pwaURL);
+    const archivosProyecto = await generarArchivosProyecto(owner, repo, pat, proyecto, pkg, appLabel, versionCode, versionName, pwaMode, pwaURL);
     log('ok', '✅ ' + archivosProyecto.length + ' archivos generados');
 
     setProgress(20);
@@ -1815,7 +1926,7 @@ async function verificarOCrearRepo(owner, repo, pat) {
   }
 }
 
-async function generarArchivosProyecto(proyecto, pkg, appLabel, versionCode, versionName, pwaMode, pwaURL) {
+async function generarArchivosProyecto(owner, repo, pat, proyecto, pkg, appLabel, versionCode, versionName, pwaMode, pwaURL) {
   const pkgPath = pkg.replace(/\./g, '/');
   const minSdk = 24;
   const targetSdk = 34;
@@ -1863,14 +1974,13 @@ async function generarArchivosProyecto(proyecto, pkg, appLabel, versionCode, ver
     }
   }
 
-  // ★ IMPORTANTE: borramos el workflow viejo si existe (para forzar la actualización) ★
+  // Borrar workflow viejo si existe, para forzar la actualización
   try {
     const workflowPath = '.github/workflows/' + WORKFLOW_FILE;
     const existente = await ghAPI('GET', '/repos/' + owner + '/' + repo + '/contents/' + workflowPath, pat);
     if (existente && existente.sha) {
-      // Borrar el workflow viejo
       await ghAPI('DELETE', '/repos/' + owner + '/' + repo + '/contents/' + workflowPath, pat, {
-        message: 'Actualizar workflow a v4 (setup-android + setup-gradle)',
+        message: 'Actualizar workflow',
         sha: existente.sha
       });
       log('muted', '   → Workflow viejo eliminado, se reinstalará');
@@ -1947,7 +2057,6 @@ function blobToBase64(blob) {
 }
 
 async function dispararWorkflow(owner, repo, pat, proyecto) {
-  // Esperar 3 segundos para que GitHub procese el commit
   await new Promise(r => setTimeout(r, 3000));
 
   const res = await fetch(API + '/repos/' + owner + '/' + repo + '/actions/workflows/' + WORKFLOW_FILE + '/dispatches', {
@@ -2125,7 +2234,6 @@ function mostrarResultadoError(e) {
   box.style.display = 'flex';
   box.innerHTML = '';
 
-  // Extraer URL de GitHub del mensaje si existe
   const urlMatch = (e && e.message || '').match(/https:\/\/github\.com\/[^\s]+/);
   if (urlMatch) {
     const a = document.createElement('a');
